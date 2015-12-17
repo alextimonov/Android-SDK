@@ -16,38 +16,42 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless;
+package com.backendless.push.registration;
 
-import java.util.concurrent.ThreadFactory;
+import weborb.v3types.GUID;
 
-class ThreadFactoryService implements ThreadFactory
+public class PubSubNotificationDeviceRegistrationCallback implements IDeviceRegistrationCallback
 {
-  private final static String DEFAULT_THREAD_GROUP_NAME = "Backendless_thread_group";
-  private final static ThreadGroup THREAD_GROUP;
-  private static ThreadFactoryService instance;
+  private String id = new GUID(  ).toString();
+  private String subscriptionId
 
-  static
+  @Override
+  public void registered( String senderId, String deviceToken, Long registrationExpiration )
   {
-    THREAD_GROUP = new ThreadGroup( DEFAULT_THREAD_GROUP_NAME );
+
   }
 
   @Override
-  public Thread newThread( Runnable runnable )
+  public void unregister()
   {
-    return new Thread( THREAD_GROUP, runnable );
+
   }
 
-  protected static ThreadFactoryService getThreadFactory()
+  @Override
+  public void registrationFailed( String error )
   {
-    if( instance == null )
-      synchronized( ThreadFactoryService.class )
-      {
-        if( instance == null )
-        {
-          instance = new ThreadFactoryService();
-        }
-      }
 
-    return instance;
+  }
+
+  @Override
+  public void unRegistrationFailed( String error )
+  {
+
+  }
+
+  @Override
+  public String getIdentity()
+  {
+    return null;
   }
 }

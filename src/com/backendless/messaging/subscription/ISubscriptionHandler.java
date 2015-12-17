@@ -16,9 +16,22 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.messaging.subscription;
 
-public enum PushPolicyEnum
+import com.backendless.Subscription;
+import com.backendless.async.callback.AsyncCallback;
+import com.backendless.messaging.Message;
+import com.backendless.messaging.SubscriptionOptions;
+
+import java.util.List;
+
+public interface ISubscriptionHandler
 {
-  ONLY, ALSO, NONE
+  void subscribe( final String channelName, final AsyncCallback<List<Message>> subscriptionResponder,
+                         SubscriptionOptions subscriptionOptions, final int pollingInterval,
+                         final AsyncCallback<Subscription> responder );
+
+  Subscription subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder,
+                          SubscriptionOptions subscriptionOptions,
+                          int pollingInterval );
 }

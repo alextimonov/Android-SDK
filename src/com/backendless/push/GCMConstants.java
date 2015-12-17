@@ -47,6 +47,7 @@ public class GCMConstants
   public static final String PERMISSION_ANDROID_ACCOUNTS = "android.permission.GET_ACCOUNTS";
   public static final String PERMISSION_GCM_MESSAGE = "com.google.android.c2dm.permission.RECEIVE";
   public static final String PERMISSION_GCM_INTENTS = "com.google.android.c2dm.permission.SEND";
+  public static final String GSF_PACKAGE = "com.google.android.gsf";
 
   private GCMConstants()
   {

@@ -16,9 +16,28 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.push;
 
-public enum PushPolicyEnum
+import android.content.Context;
+import android.content.Intent;
+import com.backendless.push.registration.IReceiver;
+
+class Receiver implements IReceiver
 {
-  ONLY, ALSO, NONE
+  static final String SUBSCRIBER_IDENTITY_KEY = "BL_SUBSCRIPTION_IDENTITY";
+
+  private static final IReceiver pushReceiver = new PushReceiver();
+  private static final IReceiver pubSubReceiver = new PubSubReceiver();
+
+  @Override
+  public void handleMessage( Context context, Intent intent, boolean showNotification )
+  {
+    String subscriberIdentity = intent.getStringExtra( SUBSCRIBER_IDENTITY_KEY );
+
+    if( subscriberIdentity == null || subscriberIdentity.isEmpty())
+       pushReceiver.handleMessage( context, intent, showNotification );
+    else
+      pubSubReceiver.handleMessage( context, intent, showNotification );
+
+  }
 }

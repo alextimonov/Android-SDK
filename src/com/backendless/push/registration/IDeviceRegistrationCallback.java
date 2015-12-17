@@ -16,9 +16,17 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.push.registration;
 
-public enum PushPolicyEnum
+public interface IDeviceRegistrationCallback
 {
-  ONLY, ALSO, NONE
+  void registered( String senderId, String deviceToken, Long registrationExpiration );
+
+  void unregister();
+
+  void registrationFailed( String error );
+
+  void unRegistrationFailed( String error );
+
+  String getIdentity();
 }

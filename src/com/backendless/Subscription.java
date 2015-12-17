@@ -32,32 +32,17 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings( "unchecked" )
-public class Subscription
+public abstract class Subscription
 {
   private String subscriptionId;
   private String channelName;
-
-  private int pollingInterval = 1000;
-
-  private IMessageHandler handler;
-  private ScheduledFuture<?> currentTask;
-  private ScheduledExecutorService executor;
-
-  public Subscription()
-  {
-  }
-
-  public Subscription( int pollingInterval )
-  {
-    this.pollingInterval = pollingInterval;
-  }
 
   public String getSubscriptionId()
   {
     return subscriptionId;
   }
 
-  protected synchronized void setSubscriptionId( String subscriptionId )
+  public synchronized void setSubscriptionId( String subscriptionId )
   {
     this.subscriptionId = subscriptionId;
   }
@@ -67,61 +52,39 @@ public class Subscription
     return channelName;
   }
 
-  protected synchronized void setChannelName( String channelName )
+  public synchronized void setChannelName( String channelName )
   {
     this.channelName = channelName;
   }
 
-  public int getPollingInterval()
+  public abstract boolean cancelSubscription();
+
+  public abstract void onSubscribe( final AsyncCallback<List<Message>> subscriptionResponder );
+
+  public abstract void pauseSubscription();
+
+  public abstract void resumeSubscription();
+
+  @Override
+  public boolean equals( Object o )
   {
-    return pollingInterval;
+    if( this == o )
+      return true;
+    if( o == null || getClass() != o.getClass() )
+      return false;
+
+    Subscription that = (Subscription) o;
+
+    if( subscriptionId != null ? !subscriptionId.equals( that.subscriptionId ) : that.subscriptionId != null )
+      return false;
+    return !(channelName != null ? !channelName.equals( that.channelName ) : that.channelName != null);
   }
 
-  public synchronized void setPollingInterval( int pollingInterval )
+  @Override
+  public int hashCode()
   {
-    this.pollingInterval = pollingInterval;
-  }
-
-  public synchronized boolean cancelSubscription()
-  {
-    if( currentTask != null )
-    {
-      currentTask.cancel( true );
-      currentTask = null;
-    }
-
-    handler = null;
-    subscriptionId = null;
-
-    return true;
-  }
-
-  protected synchronized void onSubscribe( final AsyncCallback<List<Message>> subscriptionResponder )
-  {
-    executor = Executors.newSingleThreadScheduledExecutor( ThreadFactoryService.getThreadFactory() );
-    handler = Backendless.isAndroid() ? new AndroidHandler( subscriptionResponder, this ) : new GenericMessagingHandler( subscriptionResponder, this );
-    executor.scheduleWithFixedDelay( handler.getSubscriptionThread(), 0, pollingInterval, TimeUnit.MILLISECONDS );
-  }
-
-  public synchronized void pauseSubscription()
-  {
-    if( executor == null || executor.isShutdown() )
-      return;
-
-    executor.shutdown();
-  }
-
-  public synchronized void resumeSubscription()
-  {
-    Runnable subscriptionThread = handler.getSubscriptionThread();
-
-    if( subscriptionId == null || channelName == null || handler == null || subscriptionThread == null )
-      throw new IllegalStateException( ExceptionMessage.WRONG_SUBSCRIPTION_STATE );
-
-    if( (executor == null || executor.isShutdown()) && subscriptionThread != null )
-    {
-      executor = Executors.newSingleThreadScheduledExecutor( ThreadFactoryService.getThreadFactory() );
-      executor.scheduleWithFixedDelay( subscriptionThread, 0, pollingInterval, TimeUnit.MILLISECONDS );
-    }
+    int result = subscriptionId != null ? subscriptionId.hashCode() : 0;
+    result = 31 * result + (channelName != null ? channelName.hashCode() : 0);
+    return result;
   }
 }

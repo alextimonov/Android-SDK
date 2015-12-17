@@ -144,4 +144,6 @@ public class ExceptionMessage
 
   public final static String INCORRECT_MESSAGE_TYPE = "Message object can not be instance of PublishOptions or DeliveryOptions class";
 
+  public final static String GCM_SENDER_ID_NOT_DECLARED = "GcmSenderId meta-data is not declared in android manifest. It should be declared in receiver section in next format <meta-data android:name=\"GCMSenderId\" android:value=\"some_valeu\" />";
+
 }

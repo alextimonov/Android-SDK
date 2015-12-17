@@ -43,8 +43,10 @@ import com.backendless.exceptions.BackendlessException;
 import com.backendless.exceptions.BackendlessFault;
 import com.backendless.exceptions.ExceptionMessage;
 import com.backendless.messaging.*;
-import com.backendless.push.GCMRegistrar;
+import com.backendless.messaging.subscription.SubscriptionFactory;
 
+import com.backendless.push.registration.PushNotificationDeviceRegistrationCallback;
+import com.backendless.push.registration.Registrar;
 import weborb.types.Types;
 
 import java.util.*;
@@ -52,12 +54,13 @@ import java.util.*;
 public final class Messaging
 {
   public static String DEVICE_ID;
-  private final static String MESSAGING_MANAGER_SERVER_ALIAS = "com.backendless.services.messaging.MessagingService";
+  public final static String MESSAGING_MANAGER_SERVER_ALIAS = "com.backendless.services.messaging.MessagingService";
+
   private final static String DEVICE_REGISTRATION_MANAGER_SERVER_ALIAS = "com.backendless.services.messaging.DeviceRegistrationService";
   private final static String EMAIL_MANAGER_SERVER_ALIAS = "com.backendless.services.mail.CustomersEmailService";
   private final static String DEFAULT_CHANNEL_NAME = "default";
-  private final static String OS;
-  private final static String OS_VERSION;
+  public final static String OS;
+  public final static String OS_VERSION;
   private static final Messaging instance = new Messaging();
 
   private Messaging()
@@ -109,6 +112,16 @@ public final class Messaging
     return instance;
   }
 
+  public void registerDevice( )
+  {
+    String GCMSenderID = MessagingHelper.getGcmSenderId();
+
+    if( GCMSenderID == null )
+      throw new BackendlessException( ExceptionMessage.GCM_SENDER_ID_NOT_DECLARED );
+
+    registerDevice( GCMSenderID, "" );
+  }
+
   public void registerDevice( String GCMSenderID )
   {
     registerDevice( GCMSenderID, "" );
@@ -144,7 +157,7 @@ public final class Messaging
       {
         try
         {
-          registerDeviceGCMSync( ContextHandler.getAppContext(), GCMSenderID, channels, expiration );
+          registerDeviceGCMSync( ContextHandler.getAppContext(), GCMSenderID, channels, expiration, callback );
           return null;
         }
         catch( RuntimeException t )
@@ -163,37 +176,21 @@ public final class Messaging
 
           callback.handleFault( new BackendlessFault( result ) );
         }
-        else
-        {
-          if( callback != null )
-            callback.handleResponse( null );
-        }
       }
     }.execute();
   }
 
-  private synchronized void registerDeviceGCMSync( Context context, String GCMSenderID, List<String> channels,
-                                                   Date expiration ) throws BackendlessException
+  public static synchronized void registerDeviceGCMSync( Context context, String GCMSenderID, List<String> channels,
+                                                   Date expiration, AsyncCallback<Void> callback  ) throws BackendlessException
   {
     if( channels != null )
       for( String channel : channels )
-        checkChannelName( channel );
+        MessagingHelper.checkChannelName( channel );
 
     if( expiration != null && expiration.before( Calendar.getInstance().getTime() ) )
       throw new IllegalArgumentException( ExceptionMessage.WRONG_EXPIRATION_DATE );
 
-    GCMRegistrar.checkDevice( context );
-    GCMRegistrar.checkManifest( context );
-    GCMRegistrar.register( context, GCMSenderID, channels, expiration );
-  }
-
-  private void checkChannelName( String channelName ) throws BackendlessException
-  {
-    if( channelName == null )
-      throw new IllegalArgumentException( ExceptionMessage.NULL_CHANNEL_NAME );
-
-    if( channelName.equals( "" ) )
-      throw new IllegalArgumentException( ExceptionMessage.NULL_CHANNEL_NAME );
+    Registrar.getInstance().register( context, GCMSenderID, expiration, PushNotificationDeviceRegistrationCallback.createCallback( channels, callback ) );
   }
 
   public String registerDeviceOnServer( String deviceToken, final List<String> channels,
@@ -271,10 +268,10 @@ public final class Messaging
         {
           Context context = ContextHandler.getAppContext();
 
-          if( !GCMRegistrar.isRegistered( context ) )
+          if( !Registrar.getInstance().isRegistered( context ) )
             return new IllegalArgumentException( ExceptionMessage.DEVICE_NOT_REGISTERED );
 
-          GCMRegistrar.unregister( context );
+          Registrar.getInstance().unregister( context, PushNotificationDeviceRegistrationCallback.createCallback( new ArrayList<String>(  ), callback ) );
           return null;
         }
         catch( RuntimeException t )
@@ -495,35 +492,7 @@ public final class Messaging
                                  SubscriptionOptions subscriptionOptions,
                                  int pollingInterval ) throws BackendlessException
   {
-    checkChannelName( channelName );
-
-    if( pollingInterval < 0 )
-      throw new IllegalArgumentException( ExceptionMessage.WRONG_POLLING_INTERVAL );
-
-    String subscriptionId = subscribeForPollingAccess( channelName, subscriptionOptions );
-
-    Subscription subscription = new Subscription();
-    subscription.setChannelName( channelName );
-    subscription.setSubscriptionId( subscriptionId );
-
-    if( pollingInterval != 0 )
-      subscription.setPollingInterval( pollingInterval );
-
-    subscription.onSubscribe( subscriptionResponder );
-
-    return subscription;
-  }
-
-  private String subscribeForPollingAccess( String channelName,
-                                            SubscriptionOptions subscriptionOptions ) throws BackendlessException
-  {
-    if( channelName == null )
-      throw new IllegalArgumentException( ExceptionMessage.NULL_CHANNEL_NAME );
-
-    if( subscriptionOptions == null )
-      subscriptionOptions = new SubscriptionOptions();
-
-    return Invoker.invokeSync( MESSAGING_MANAGER_SERVER_ALIAS, "subscribeForPollingAccess", new Object[] { Backendless.getApplicationId(), Backendless.getVersion(), channelName, subscriptionOptions } );
+    return SubscriptionFactory.get().subscribe( channelName, subscriptionResponder, subscriptionOptions, pollingInterval );
   }
 
   public Subscription subscribe( String channelName,
@@ -565,64 +534,7 @@ public final class Messaging
                          SubscriptionOptions subscriptionOptions, final int pollingInterval,
                          final AsyncCallback<Subscription> responder )
   {
-    try
-    {
-      checkChannelName( channelName );
-
-      if( pollingInterval < 0 )
-        throw new IllegalArgumentException( ExceptionMessage.WRONG_POLLING_INTERVAL );
-
-      subscribeForPollingAccess( channelName, subscriptionOptions, new AsyncCallback<String>()
-      {
-        @Override
-        public void handleResponse( String subscriptionId )
-        {
-          Subscription subscription = new Subscription();
-          subscription.setChannelName( channelName );
-          subscription.setSubscriptionId( subscriptionId );
-
-          if( pollingInterval != 0 )
-            subscription.setPollingInterval( pollingInterval );
-
-          subscription.onSubscribe( subscriptionResponder );
-
-          if( responder != null )
-            responder.handleResponse( subscription );
-        }
-
-        @Override
-        public void handleFault( BackendlessFault fault )
-        {
-          if( responder != null )
-            responder.handleFault( fault );
-        }
-      } );
-    }
-    catch( Throwable e )
-    {
-      if( responder != null )
-        responder.handleFault( new BackendlessFault( e ) );
-    }
-  }
-
-  private void subscribeForPollingAccess( String channelName, SubscriptionOptions subscriptionOptions,
-                                          AsyncCallback<String> responder )
-  {
-    try
-    {
-      if( channelName == null )
-        throw new IllegalArgumentException( ExceptionMessage.NULL_CHANNEL_NAME );
-
-      if( subscriptionOptions == null )
-        subscriptionOptions = new SubscriptionOptions();
-
-      Invoker.invokeAsync( MESSAGING_MANAGER_SERVER_ALIAS, "subscribeForPollingAccess", new Object[] { Backendless.getApplicationId(), Backendless.getVersion(), channelName, subscriptionOptions }, responder );
-    }
-    catch( Throwable e )
-    {
-      if( responder != null )
-        responder.handleFault( new BackendlessFault( e ) );
-    }
+    SubscriptionFactory.get().subscribe( channelName, subscriptionResponder, subscriptionOptions, pollingInterval, responder );
   }
 
   public void subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder,
@@ -657,7 +569,7 @@ public final class Messaging
 
   public List<Message> pollMessages( String channelName, String subscriptionId ) throws BackendlessException
   {
-    checkChannelName( channelName );
+    MessagingHelper.checkChannelName( channelName );
 
     if( subscriptionId == null )
       throw new IllegalArgumentException( ExceptionMessage.NULL_SUBSCRIPTION_ID );
@@ -671,7 +583,7 @@ public final class Messaging
   {
     try
     {
-      checkChannelName( channelName );
+      MessagingHelper.checkChannelName( channelName );
 
       if( subscriptionId == null )
         throw new IllegalArgumentException( ExceptionMessage.NULL_SUBSCRIPTION_ID );

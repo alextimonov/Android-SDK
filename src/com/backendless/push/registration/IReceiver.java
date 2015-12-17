@@ -16,9 +16,12 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.push.registration;
 
-public enum PushPolicyEnum
+import android.content.Context;
+import android.content.Intent;
+
+public interface IReceiver
 {
-  ONLY, ALSO, NONE
+  void handleMessage( Context context, Intent intent, boolean showNotification );
 }

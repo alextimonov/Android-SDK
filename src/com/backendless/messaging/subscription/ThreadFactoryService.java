@@ -16,9 +16,38 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.messaging.subscription;
 
-public enum PushPolicyEnum
+import java.util.concurrent.ThreadFactory;
+
+class ThreadFactoryService implements ThreadFactory
 {
-  ONLY, ALSO, NONE
+  private final static String DEFAULT_THREAD_GROUP_NAME = "Backendless_thread_group";
+  private final static ThreadGroup THREAD_GROUP;
+  private static ThreadFactoryService instance;
+
+  static
+  {
+    THREAD_GROUP = new ThreadGroup( DEFAULT_THREAD_GROUP_NAME );
+  }
+
+  @Override
+  public Thread newThread( Runnable runnable )
+  {
+    return new Thread( THREAD_GROUP, runnable );
+  }
+
+  protected static ThreadFactoryService getThreadFactory()
+  {
+    if( instance == null )
+      synchronized( ThreadFactoryService.class )
+      {
+        if( instance == null )
+        {
+          instance = new ThreadFactoryService();
+        }
+      }
+
+    return instance;
+  }
 }

@@ -53,9 +53,10 @@ public final class Backendless
   public static final CustomService CustomService = com.backendless.CustomService.getInstance();
   public static final Logging Logging = com.backendless.Logging.getInstance();
   public static Media Media;
-  private static String url = "https://api.backendless.com";
+  private static String url = "http://10.0.1.14:9000";
   private static final BackendlessPrefs prefs;
   private static Boolean isAndroid;
+  private static Boolean isFireOS;
 
   private Backendless()
   {
@@ -77,6 +78,24 @@ public final class Backendless
     }
 
     return isAndroid;
+  }
+
+  public static boolean isFireOS()
+  {
+    if( isFireOS == null )
+    {
+      try
+      {
+        Class.forName( "com.amazon.device.messaging.ADM" );
+        isFireOS = true;
+      }
+      catch( ClassNotFoundException e )
+      {
+        isFireOS = false;
+      }
+    }
+
+    return isFireOS;
   }
 
   static
@@ -212,5 +231,10 @@ public final class Backendless
   public static boolean isCodeRunner()
   {
     return Thread.currentThread().getThreadGroup().getName().equals( "CodeRunner secure group" );
+  }
+
+  public static BackendlessPrefs getPreferences()
+  {
+    return prefs;
   }
 }

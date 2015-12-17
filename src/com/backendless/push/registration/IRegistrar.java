@@ -16,9 +16,28 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.push.registration;
 
-public enum PushPolicyEnum
+import android.content.Context;
+import android.content.Intent;
+
+import java.util.Date;
+
+interface IRegistrar
 {
-  ONLY, ALSO, NONE
+  void register( Context context, String senderId, Date expiration, IDeviceRegistrationCallback callback );
+
+  //void retry( Context context, Intent intent );
+
+  void unregister( Context context, IDeviceRegistrationCallback callback );
+
+  void registrationCompleted( String senderId, String deviceToken, Long registrationExpiration, String callbackId );
+
+  void registrationFailed( String error, String callbackId );
+
+  void unregistrationCompleted( String callbackId );
+
+  void unregistrationFailed( String error, String callbackId );
+
+  boolean isRegistered( Context context );
 }

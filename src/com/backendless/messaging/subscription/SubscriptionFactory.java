@@ -16,9 +16,12 @@
  *  ********************************************************************************************************************
  */
 
-package com.backendless.messaging;
+package com.backendless.messaging.subscription;
 
-public enum PushPolicyEnum
+public class SubscriptionFactory
 {
-  ONLY, ALSO, NONE
+  public static ISubscriptionHandler get()
+  {
+    return new PollingSubscriptionHandler();
+  }
 }
