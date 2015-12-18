@@ -47,13 +47,13 @@ public class SubscriptionFactory implements ISubscriptionHandler
   @Override
   public void subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder, SubscriptionOptions subscriptionOptions, int pollingInterval, AsyncCallback<Subscription> responder )
   {
-
+     getSubscriptionHandler( subscriptionOptions ).subscribe( channelName, subscriptionResponder, subscriptionOptions, pollingInterval, responder );
   }
 
   @Override
   public Subscription subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder, SubscriptionOptions subscriptionOptions, int pollingInterval )
   {
-    return null;
+    return getSubscriptionHandler( subscriptionOptions ).subscribe( channelName, subscriptionResponder, subscriptionOptions, pollingInterval );
   }
 
   private ISubscriptionHandler getSubscriptionHandler( SubscriptionOptions subscriptionOptions )
@@ -67,5 +67,10 @@ public class SubscriptionFactory implements ISubscriptionHandler
 
       throw new IllegalDeliveryMethodTypeException(  );
     }
+
+    if( subscriptionOptions == null || subscriptionOptions.getDeliveryMethod() == DeliveryMethod.PUSH )
+      return pushSubscriptionHandler;
+
+    return pollSubscriptionHandler;
   }
 }
