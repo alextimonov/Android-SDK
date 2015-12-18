@@ -26,19 +26,16 @@ import com.backendless.exceptions.ExceptionMessage;
 import com.backendless.messaging.Message;
 import com.backendless.messaging.MessagingHelper;
 import com.backendless.messaging.SubscriptionOptions;
+import com.backendless.push.registration.PubSubNotificationDeviceRegistrationCallback;
 import com.backendless.push.registration.Registrar;
 
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PubSubSubscriptionHandler implements ISubscriptionHandler
+public class PushSubscriptionHandler implements ISubscriptionHandler
 {
-  private static Map<String, HashMap.SimpleEntry<Subscription, AsyncCallback<List<Message>>>> responders = new ConcurrentHashMap<String, AbstractMap.SimpleEntry<Subscription, AsyncCallback<List<Message>>>>();
-  private Object lock = new Object();
+  private static Map<String, PushSubscription> subscriptions = new ConcurrentHashMap<String, PushSubscription>();
 
   @Override
   public void subscribe( final String channelName, final AsyncCallback<List<Message>> subscriptionResponder,
@@ -50,34 +47,6 @@ public class PubSubSubscriptionHandler implements ISubscriptionHandler
 
     if( GCMSenderID == null )
       throw new BackendlessException( ExceptionMessage.GCM_SENDER_ID_NOT_DECLARED );
-
-//    final String deviceToken
-
-    //Backendless.Messaging.registerDevice( GCMSenderID, channelName, new AsyncCallback<String>()
-
-//    new AsyncTask<Void, Void, Void>()
-//    {
-//      @Override
-//      protected Void doInBackground( Void... params )
-//      {
-//        try
-//        {
-//          Messaging.registerDeviceGCMSync( ContextHandler.getAppContext(), GCMSenderID, Arrays.asList( new String[] { channelName } ), null );
-//          DeviceRegistration registration = new DeviceRegistration();
-//          registration.setDeviceId( Messaging.DEVICE_ID );
-//          registration.setDeviceToken( deviceToken );
-//          registration.setOs( Messaging.OS );
-//          registration.setOsVersion( Messaging.OS_VERSION );
-//        }
-//        catch( RuntimeException t )
-//        {
-//          if( responder != null )
-//            responder.handleFault( new BackendlessFault( t.getMessage() ) );
-//        }
-//
-//        return null;
-//      }
-//    }.execute();
   }
 
   @Override
@@ -88,20 +57,29 @@ public class PubSubSubscriptionHandler implements ISubscriptionHandler
     if( GCMSenderID == null )
       throw new BackendlessException( ExceptionMessage.GCM_SENDER_ID_NOT_DECLARED );
 
-    Registrar.getInstance().register( ContextHandler.getAppContext(), GCMSenderID, Arrays.asList( new String[] { channelName } ) );
-    return null;
+    PubSubNotificationDeviceRegistrationCallback callback = new PubSubNotificationDeviceRegistrationCallback( channelName, subscriptionOptions );
+    Registrar.getInstance().register( ContextHandler.getAppContext(), GCMSenderID, null, callback );
+
+    String subscriptionId = callback.getSubscriptionId();
+
+    PushSubscription subscription = new PushSubscription();
+    subscription.setSubscriptionId( subscriptionId );
+    subscription.setChannelName( channelName );
+    subscription.onSubscribe( subscriptionResponder );
+    subscription.setDeviceRegistrationCallback( callback );
+    subscriptions.put( getSubscriptionIdentity( channelName, subscriptionOptions ), subscription );
+    return subscription;
   }
 
   public static AsyncCallback<List<Message>> getResponder( String subscriptionIdentity )
   {
-    AbstractMap.SimpleEntry<Subscription, AsyncCallback<List<Message>>> entry = responders.get( subscriptionIdentity );
-    return entry == null ? null : entry.getValue();
+    PushSubscription entry = subscriptions.get( subscriptionIdentity );
+    return entry == null ? null : entry.getMessagesCallback();
   }
 
   public static Subscription getSubscription( String subscriptionIdentity )
   {
-    AbstractMap.SimpleEntry<Subscription, AsyncCallback<List<Message>>> entry = responders.get( subscriptionIdentity );
-    return entry == null ? null : entry.getKey();
+    return subscriptions.get( subscriptionIdentity );
   }
 
   private static String getSubscriptionIdentity( String channelName, SubscriptionOptions subscriptionOptions )

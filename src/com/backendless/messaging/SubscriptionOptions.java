@@ -18,6 +18,7 @@
 
 package com.backendless.messaging;
 
+import com.backendless.Backendless;
 import weborb.v3types.GUID;
 
 public class SubscriptionOptions
@@ -25,6 +26,7 @@ public class SubscriptionOptions
   private String subscriberId;
   private String subtopic;
   private String selector;
+  private DeliveryMethod deliveryMethod = Backendless.isAndroid() &&  MessagingHelper.getGcmSenderId() != null ? DeliveryMethod.PUSH : DeliveryMethod.POLL;
 
   public SubscriptionOptions()
   {
@@ -77,5 +79,15 @@ public class SubscriptionOptions
   public void setSelector( String selector )
   {
     this.selector = selector;
+  }
+
+  public DeliveryMethod getDeliveryMethod()
+  {
+    return deliveryMethod;
+  }
+
+  public void setDeliveryMethod( DeliveryMethod deliveryMethod )
+  {
+    this.deliveryMethod = deliveryMethod;
   }
 }

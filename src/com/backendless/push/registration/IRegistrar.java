@@ -27,8 +27,6 @@ interface IRegistrar
 {
   void register( Context context, String senderId, Date expiration, IDeviceRegistrationCallback callback );
 
-  //void retry( Context context, Intent intent );
-
   void unregister( Context context, IDeviceRegistrationCallback callback );
 
   void registrationCompleted( String senderId, String deviceToken, Long registrationExpiration, String callbackId );

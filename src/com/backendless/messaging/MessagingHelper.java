@@ -24,6 +24,8 @@ import com.backendless.push.BackendlessBroadcastReceiver;
 
 public class MessagingHelper
 {
+  private static String gcmSenderId;
+
   public static void checkChannelName( String channelName ) throws BackendlessException
   {
     if( channelName == null )
@@ -33,8 +35,11 @@ public class MessagingHelper
       throw new IllegalArgumentException( ExceptionMessage.NULL_CHANNEL_NAME );
   }
 
-  public static String getGcmSenderId()
+  public synchronized static String getGcmSenderId()
   {
+    if(gcmSenderId != null)
+      return gcmSenderId;
+
     android.content.Context context = com.backendless.ContextHandler.getAppContext();
     android.content.pm.PackageManager packageManager = context.getPackageManager();
     String packageName = context.getPackageName();
@@ -47,7 +52,8 @@ public class MessagingHelper
     {
       if( receiverExtendsPushBroadcast( receiver ) )
       {
-        return retrieveSenderIdMetaPresent( context, receiver.name );
+        gcmSenderId = retrieveSenderIdMetaPresent( context, receiver.name );
+        return gcmSenderId;
       }
     }
 

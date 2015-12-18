@@ -54,34 +54,27 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
   @Override
   public void registered( String senderId, String deviceToken, Long registrationExpiration )
   {
-    synchronized( lock )
+    synchronized ( lock )
     {
       Iterator<List<String>> it = unNotified.keySet().iterator();
 
-      while( it.hasNext() )
+      while ( it.hasNext() )
       {
         List<String> channels = it.next();
 
         Collection<AsyncCallback<Void>> callbacks = unNotified.get( channels );
 
-        for( final AsyncCallback<Void> callback : callbacks )
+        for ( final AsyncCallback<Void> callback : callbacks )
         {
-
-          Backendless.Messaging.registerDeviceOnServer( deviceToken, channels, registrationExpiration, new AsyncCallback<String>()
+          try
           {
-            @Override
-            public void handleResponse( String registrationId )
-            {
-              callback.handleResponse( null );
-            }
-
-            @Override
-            public void handleFault( BackendlessFault fault )
-            {
-              callback.handleFault( fault );
-              //onError( context, "Could not register device on Backendless server: " + fault.getMessage() );
-            }
-          } );
+            Backendless.Messaging.registerDeviceOnServer( deviceToken, channels, registrationExpiration );
+            callback.handleResponse( null );
+          }
+          catch ( Exception e )
+          {
+            callback.handleFault( new BackendlessFault( e.getMessage() ) );
+          }
         }
 
         unNotified.remove( channels );
@@ -92,20 +85,37 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
   @Override
   public void unregister()
   {
-    Backendless.Messaging.unregisterDeviceOnServer( new AsyncCallback<Boolean>()
+
+    synchronized ( lock )
     {
-      @Override
-      public void handleResponse( Boolean unregistered )
-      {
+      Iterator<List<String>> it = unNotified.keySet().iterator();
 
-      }
-
-      @Override
-      public void handleFault( BackendlessFault fault )
+      while ( it.hasNext() )
       {
-        //onError( context, "Could not unregister device on Backendless server: " + fault.getMessage() );
+        List<String> channels = it.next();
+
+        Collection<AsyncCallback<Void>> callbacks = unNotified.get( channels );
+
+        for ( final AsyncCallback<Void> callback : callbacks )
+        {
+          try
+          {
+            boolean success = Backendless.Messaging.unregisterDeviceOnServer();
+
+            if( success )
+              callback.handleResponse( null );
+            else
+              callback.handleFault( new BackendlessFault( "Unregistration on backendless server failed" ) );
+          }
+          catch ( Exception e )
+          {
+            callback.handleFault( new BackendlessFault( e.getMessage() ) );
+          }
+        }
+
+        unNotified.remove( channels );
       }
-    } );
+    }
   }
 
   @Override
@@ -128,7 +138,7 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
 
   private PushNotificationDeviceRegistrationCallback addCallback( List<String> channels, AsyncCallback<Void> callback )
   {
-    synchronized( lock )
+    synchronized ( lock )
     {
       if( !unNotified.containsKey( channels ) )
       {

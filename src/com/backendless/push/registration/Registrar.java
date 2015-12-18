@@ -99,15 +99,6 @@ public class Registrar implements IRegistrar
     }
   }
 
-//  @Override
-//  public void retry( Context context, Intent intent )
-//  {
-//    if( RegistrationState.getAction( context ).equals( GCMConstants.INTENT_TO_GCM_REGISTRATION ) )
-//      register( context, RegistrationState.getSenderId( context ), new Date( RegistrationState.getExpiration( context ) ), callbackMap.get( RegistrationState.getCallbackId( context ) ) );
-//    else
-//      unregister( context, RegistrationState.getCallbackId( context ) );
-//  }
-
   @Override
   public void unregister( Context context, IDeviceRegistrationCallback callback )
   {

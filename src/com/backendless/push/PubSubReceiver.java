@@ -26,7 +26,7 @@ import com.backendless.Subscription;
 import com.backendless.async.callback.AsyncCallback;
 import com.backendless.messaging.Message;
 import com.backendless.messaging.PublishOptions;
-import com.backendless.messaging.subscription.PubSubSubscriptionHandler;
+import com.backendless.messaging.subscription.PushSubscriptionHandler;
 import com.backendless.persistence.BackendlessSerializer;
 import com.backendless.push.registration.IReceiver;
 
@@ -42,7 +42,7 @@ class PubSubReceiver implements IReceiver
     String subscriptionIdentity = intent.getStringExtra( Receiver.SUBSCRIBER_IDENTITY_KEY );
     List<Message> messageList = null;
 
-    AsyncCallback<List<Message>> responder = PubSubSubscriptionHandler.getResponder( subscriptionIdentity );
+    AsyncCallback<List<Message>> responder = PushSubscriptionHandler.getResponder( subscriptionIdentity );
     if( responder == null )
     {
       return; //maybe we should show warning?
@@ -50,8 +50,8 @@ class PubSubReceiver implements IReceiver
 
     if(message== null || message.isEmpty())
     {
-      Subscription subscription = PubSubSubscriptionHandler.getSubscription( subscriptionIdentity );
-      Backendless.Messaging.pollMessages( subscription.getChannelName(), subscription.getSubscriptionId() );
+      Subscription subscription = PushSubscriptionHandler.getSubscription( subscriptionIdentity );
+      messageList = Backendless.Messaging.pollMessages( subscription.getChannelName(), subscription.getSubscriptionId() );
     }
     else
     {

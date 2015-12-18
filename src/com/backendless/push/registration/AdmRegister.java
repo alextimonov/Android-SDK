@@ -20,7 +20,7 @@ package com.backendless.push.registration;
 
 import android.content.Context;
 import android.content.Intent;
-import com.amazon.device.messaging.ADM;
+//import com.amazon.device.messaging.ADM;
 
 import java.util.Date;
 
@@ -29,7 +29,7 @@ class AdmRegister implements IRegistrar
   @Override
   public void register( Context context, String senderId, Date expiration, IDeviceRegistrationCallback callback )
   {
-    ADM adm = new ADM( context );
+    //ADM adm = new ADM( context );
     //context.inte
   }
 
