@@ -18,10 +18,54 @@
 
 package com.backendless.messaging.subscription;
 
-public class SubscriptionFactory
+import com.backendless.Subscription;
+import com.backendless.async.callback.AsyncCallback;
+import com.backendless.exceptions.BackendlessException;
+import com.backendless.exceptions.IllegalDeliveryMethodTypeException;
+import com.backendless.messaging.DeliveryMethod;
+import com.backendless.messaging.Message;
+import com.backendless.messaging.MessagingHelper;
+import com.backendless.messaging.SubscriptionOptions;
+
+import java.util.List;
+
+public class SubscriptionFactory implements ISubscriptionHandler
 {
-  public static ISubscriptionHandler get()
+  private static final SubscriptionFactory instance = new SubscriptionFactory();
+  private static final ISubscriptionHandler pollSubscriptionHandler = new PollingSubscriptionHandler();
+  private static final ISubscriptionHandler pushSubscriptionHandler = new PushSubscriptionHandler();
+
+  public static SubscriptionFactory get()
   {
-    return new PollingSubscriptionHandler();
+    return instance;
+  }
+
+  private SubscriptionFactory()
+  {
+  }
+
+  @Override
+  public void subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder, SubscriptionOptions subscriptionOptions, int pollingInterval, AsyncCallback<Subscription> responder )
+  {
+
+  }
+
+  @Override
+  public Subscription subscribe( String channelName, AsyncCallback<List<Message>> subscriptionResponder, SubscriptionOptions subscriptionOptions, int pollingInterval )
+  {
+    return null;
+  }
+
+  private ISubscriptionHandler getSubscriptionHandler( SubscriptionOptions subscriptionOptions )
+  {
+    if( MessagingHelper.getGcmSenderId() == null )
+    {
+      if( subscriptionOptions == null || subscriptionOptions.getDeliveryMethod() == DeliveryMethod.POLL )
+      {
+        return pollSubscriptionHandler;
+      }
+
+      throw new IllegalDeliveryMethodTypeException(  );
+    }
   }
 }
