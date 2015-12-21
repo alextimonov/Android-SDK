@@ -93,12 +93,10 @@ public class MessagingHelper
       return null;
 
     android.os.Bundle bundle = appi.metaData;
-    Object gcmSenderId = bundle.get( "GCMSenderId" );
 
-    if( bundle == null || gcmSenderId == null )
-      return null;
 
-    return gcmSenderId.toString();
+    Object gcmSenderId = bundle == null ? null : bundle.get( "GCMSenderId" );
+    return gcmSenderId == null ? null : gcmSenderId.toString();
   }
 
   private static boolean receiverExtendsPushBroadcast( android.content.pm.ActivityInfo receiver )
