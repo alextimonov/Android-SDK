@@ -2,7 +2,12 @@ package com.backendless.messaging.subscription;
 
 import android.content.Context;
 import com.backendless.Subscription;
+import com.backendless.ThreadPoolService;
 import com.backendless.async.callback.AsyncCallback;
+import com.backendless.async.message.AsyncMessage;
+import com.backendless.core.ResponseCarrier;
+import com.backendless.exceptions.BackendlessException;
+import com.backendless.exceptions.BackendlessFault;
 import com.backendless.messaging.Message;
 import com.backendless.push.registration.PubSubNotificationDeviceRegistrationCallback;
 import com.backendless.push.registration.Registrar;
@@ -15,10 +20,32 @@ public class PushSubscription extends Subscription
   private AsyncCallback<List<Message>> messagesCallback;
   private Context context;
 
+  public PushSubscription( Context context )
+  {
+    this.context = context;
+  }
+
   @Override
   public boolean cancelSubscription()
   {
-    Registrar.getInstance().unregister( context, deviceRegistrationCallback );
+    ThreadPoolService.getPoolExecutor().execute( new Runnable()
+    {
+      @Override
+      public void run()
+      {
+//        try
+//        {
+          Registrar.getInstance().unregister( context, deviceRegistrationCallback );
+//          ResponseCarrier.getInstance().deliverMessage( new AsyncMessage( subscription, responder ) );
+//        }
+//        catch( BackendlessException e )
+//        {
+//          if( responder != null )
+//            ResponseCarrier.getInstance().deliverMessage( new AsyncMessage( new BackendlessFault( e ), responder ) );
+//        }
+      }
+    } );
+
     return true;
   }
 

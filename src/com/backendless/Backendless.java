@@ -53,7 +53,7 @@ public final class Backendless
   public static final CustomService CustomService = com.backendless.CustomService.getInstance();
   public static final Logging Logging = com.backendless.Logging.getInstance();
   public static Media Media;
-  private static String url = "http://10.0.1.14:9000";
+  private static String url = "https://api.backendless.com";
   private static final BackendlessPrefs prefs;
   private static Boolean isAndroid;
   private static Boolean isFireOS;

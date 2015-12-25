@@ -20,8 +20,12 @@ package com.backendless.messaging.subscription;
 
 import com.backendless.ContextHandler;
 import com.backendless.Subscription;
+import com.backendless.ThreadPoolService;
 import com.backendless.async.callback.AsyncCallback;
+import com.backendless.async.message.AsyncMessage;
+import com.backendless.core.ResponseCarrier;
 import com.backendless.exceptions.BackendlessException;
+import com.backendless.exceptions.BackendlessFault;
 import com.backendless.exceptions.ExceptionMessage;
 import com.backendless.messaging.Message;
 import com.backendless.messaging.MessagingHelper;
@@ -39,14 +43,27 @@ public class PushSubscriptionHandler implements ISubscriptionHandler
 
   @Override
   public void subscribe( final String channelName, final AsyncCallback<List<Message>> subscriptionResponder,
-                         final SubscriptionOptions subscriptionOptions, int pollingInterval,
+                         final SubscriptionOptions subscriptionOptions, final int pollingInterval,
                          final AsyncCallback<Subscription> responder )
   {
-
-    final String GCMSenderID = MessagingHelper.getGcmSenderId();
-
-    if( GCMSenderID == null )
-      throw new BackendlessException( ExceptionMessage.GCM_SENDER_ID_NOT_DECLARED );
+    ThreadPoolService.getPoolExecutor().execute( new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        try
+        {
+          Subscription subscription = subscribe( channelName, subscriptionResponder, subscriptionOptions, pollingInterval );
+          if( responder != null )
+            ResponseCarrier.getInstance().deliverMessage( new AsyncMessage( subscription, responder ) );
+        }
+        catch( BackendlessException e )
+        {
+          if( responder != null )
+            ResponseCarrier.getInstance().deliverMessage( new AsyncMessage( new BackendlessFault( e ), responder ) );
+        }
+      }
+    } );
   }
 
   @Override
@@ -62,7 +79,7 @@ public class PushSubscriptionHandler implements ISubscriptionHandler
 
     String subscriptionId = callback.getSubscriptionId();
 
-    PushSubscription subscription = new PushSubscription();
+    PushSubscription subscription = new PushSubscription( ContextHandler.getAppContext() );
     subscription.setSubscriptionId( subscriptionId );
     subscription.setChannelName( channelName );
     subscription.onSubscribe( subscriptionResponder );

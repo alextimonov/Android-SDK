@@ -87,6 +87,9 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
 
   public void onError( Context context, String message )
   {
+    if( message.contains( "device is not subscribed" ) )
+      RegistrationState.setDeviceToken( context, null );
+
     throw new RuntimeException( message );
   }
 
@@ -164,6 +167,7 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
       // Remember we are unregistered
       onUnregistered( context );
       backOff = DEFAULT_BACKOFF_MS;
+      RegistrationState.setDeviceToken( context, null );
       Registrar.getInstance().unregistrationCompleted( RegistrationState.getCallbackId( context ) );
 
       return;

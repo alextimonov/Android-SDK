@@ -20,6 +20,7 @@ package com.backendless.messaging;
 
 import com.backendless.exceptions.BackendlessException;
 import com.backendless.exceptions.ExceptionMessage;
+import com.backendless.exceptions.WrongGCMSenderFormatException;
 import com.backendless.push.BackendlessBroadcastReceiver;
 
 public class MessagingHelper
@@ -95,8 +96,10 @@ public class MessagingHelper
     android.os.Bundle bundle = appi.metaData;
 
 
-    Object gcmSenderId = bundle == null ? null : bundle.get( "GCMSenderId" );
-    return gcmSenderId == null ? null : gcmSenderId.toString();
+    String gcmSenderId = bundle == null ? null : bundle.getString( "GCMSenderId" );
+    if( gcmSenderId != null && !gcmSenderId.toLowerCase().endsWith( "l" ) )
+      throw new WrongGCMSenderFormatException(  );
+    return gcmSenderId == null ? null : gcmSenderId.substring( 0, gcmSenderId.length()-1 );
   }
 
   private static boolean receiverExtendsPushBroadcast( android.content.pm.ActivityInfo receiver )

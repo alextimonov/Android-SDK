@@ -23,7 +23,10 @@ import android.content.Intent;
 import android.util.Base64;
 import com.backendless.Backendless;
 import com.backendless.Subscription;
+import com.backendless.ThreadPoolService;
 import com.backendless.async.callback.AsyncCallback;
+import com.backendless.exceptions.BackendlessException;
+import com.backendless.exceptions.BackendlessFault;
 import com.backendless.messaging.Message;
 import com.backendless.messaging.PublishOptions;
 import com.backendless.messaging.subscription.PushSubscriptionHandler;
@@ -42,7 +45,7 @@ class PubSubReceiver implements IReceiver
     String subscriptionIdentity = intent.getStringExtra( Receiver.SUBSCRIBER_IDENTITY_KEY );
     List<Message> messageList = null;
 
-    AsyncCallback<List<Message>> responder = PushSubscriptionHandler.getResponder( subscriptionIdentity );
+    final AsyncCallback<List<Message>> responder = PushSubscriptionHandler.getResponder( subscriptionIdentity );
     if( responder == null )
     {
       return; //maybe we should show warning?
@@ -50,16 +53,31 @@ class PubSubReceiver implements IReceiver
 
     if(message== null || message.isEmpty())
     {
-      Subscription subscription = PushSubscriptionHandler.getSubscription( subscriptionIdentity );
-      messageList = Backendless.Messaging.pollMessages( subscription.getChannelName(), subscription.getSubscriptionId() );
-    }
-    else
-    {
-      byte[] byteMessage = Base64.decode( message, Base64.DEFAULT );
-      Message deserializedMessage = BackendlessSerializer.deserializeAMF( byteMessage );
-      messageList = Arrays.asList( new Message[] { deserializedMessage } );
+      final Subscription subscription = PushSubscriptionHandler.getSubscription( subscriptionIdentity );
+
+      ThreadPoolService.getPoolExecutor().execute( new Runnable()
+      {
+        @Override
+        public void run()
+        {
+          try
+          {
+            List<Message> messageList = Backendless.Messaging.pollMessages( subscription.getChannelName(), subscription.getSubscriptionId() );
+            responder.handleResponse( messageList );
+          }
+          catch( BackendlessException e )
+          {
+            responder.handleFault( new BackendlessFault( e.getMessage() ) );
+          }
+        }
+      } );
+
+      return;
     }
 
+    byte[] byteMessage = Base64.decode( message, Base64.DEFAULT );
+    Message deserializedMessage = BackendlessSerializer.deserializeAMF( byteMessage );
+    messageList = Arrays.asList( new Message[] { deserializedMessage } );
 
     responder.handleResponse( messageList );
   }

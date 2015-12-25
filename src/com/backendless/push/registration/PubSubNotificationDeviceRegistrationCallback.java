@@ -47,6 +47,9 @@ public class PubSubNotificationDeviceRegistrationCallback implements IDeviceRegi
     registration.setOs( Messaging.OS );
     registration.setOsVersion( Messaging.OS_VERSION );
 
+    if ( subscriptionOptions == null )
+       subscriptionOptions = new SubscriptionOptions(  );
+
     subscriptionId = Invoker.invokeSync( Messaging.MESSAGING_MANAGER_SERVER_ALIAS, "subscribeForPollingAccess", new Object[]
             { Backendless.getApplicationId(), Backendless.getVersion(), channelName, subscriptionOptions, registration });
 
