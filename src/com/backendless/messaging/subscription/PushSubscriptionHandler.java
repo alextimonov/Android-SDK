@@ -74,13 +74,27 @@ public class PushSubscriptionHandler implements ISubscriptionHandler
     if( GCMSenderID == null )
       throw new BackendlessException( ExceptionMessage.GCM_SENDER_ID_NOT_DECLARED );
 
-    PubSubNotificationDeviceRegistrationCallback callback = new PubSubNotificationDeviceRegistrationCallback( channelName, subscriptionOptions );
+    final PushSubscription subscription = new PushSubscription( ContextHandler.getAppContext() );
+    final Object wait = new Object();
+
+    PubSubNotificationDeviceRegistrationCallback callback = new PubSubNotificationDeviceRegistrationCallback( channelName, subscriptionOptions, new AsyncCallback<String>()
+    {
+      @Override
+      public void handleResponse( String subscriptionId )
+      {
+        subscription.setSubscriptionId( subscriptionId );
+        realiseLock( wait );
+      }
+
+      @Override
+      public void handleFault( BackendlessFault fault )
+      {
+
+      }
+    } );
+
     Registrar.getInstance().register( ContextHandler.getAppContext(), GCMSenderID, null, callback );
-
-    String subscriptionId = callback.getSubscriptionId();
-
-    PushSubscription subscription = new PushSubscription( ContextHandler.getAppContext() );
-    subscription.setSubscriptionId( subscriptionId );
+    lock( wait );
     subscription.setChannelName( channelName );
     subscription.onSubscribe( subscriptionResponder );
     subscription.setDeviceRegistrationCallback( callback );
@@ -113,5 +127,28 @@ public class PushSubscriptionHandler implements ISubscriptionHandler
       subscriptionIdentity += subscriptionOptions.getSelector();
 
     return subscriptionIdentity;
+  }
+
+  private void lock( Object wait )
+  {
+    synchronized( wait )
+    {
+      try
+      {
+        wait.wait();
+      }
+      catch( InterruptedException e )
+      {
+        throw new RuntimeException( e );
+      }
+    }
+  }
+
+  private void realiseLock( Object wait )
+  {
+    synchronized( wait )
+    {
+      wait.notifyAll();
+    }
   }
 }

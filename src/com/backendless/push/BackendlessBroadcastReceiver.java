@@ -99,6 +99,7 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
     try
     {
       String action = intent.getAction();
+      Log.d( TAG, "handleIntent: " + action );
 
       if( action.equals( GCMConstants.INTENT_FROM_GCM_REGISTRATION_CALLBACK ) )
         handleRegistration( context, intent );
@@ -150,9 +151,14 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
     String error = intent.getStringExtra( GCMConstants.EXTRA_ERROR );
     String unregistered = intent.getStringExtra( GCMConstants.EXTRA_UNREGISTERED );
 
+    Log.d( TAG, "handleRegistration: error " + error );
+    Log.d( TAG, "handleRegistration: unregistered " + unregistered );
+
+
     // registration succeeded
     if( RegistrationState.getAction( context ).equals( GCMConstants.INTENT_TO_GCM_REGISTRATION ) )
     {
+      Log.d( TAG, "handleRegistration: registration succeeded " );
       backOff = DEFAULT_BACKOFF_MS;
       onRegistered( context );
       String deviceToken = intent.getStringExtra( GCMConstants.EXTRA_REGISTRATION_ID );
@@ -164,6 +170,7 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
     // unregistration succeeded
     if( unregistered != null )
     {
+      Log.d( TAG, "handleRegistration: unregistration succeeded " );
       // Remember we are unregistered
       onUnregistered( context );
       backOff = DEFAULT_BACKOFF_MS;
@@ -176,6 +183,7 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
     // Registration failed
     if( error.equals( GCMConstants.ERROR_SERVICE_NOT_AVAILABLE ) )
     {
+      Log.d( TAG, "handleRegistration: retry un/registration after " + backOff );
       int backoffTimeMs = backOff;
       int nextAttempt = backoffTimeMs / 2 + random.nextInt( backoffTimeMs );
       Intent retryIntent = new Intent( GCMConstants.INTENT_FROM_GCM_LIBRARY_RETRY );

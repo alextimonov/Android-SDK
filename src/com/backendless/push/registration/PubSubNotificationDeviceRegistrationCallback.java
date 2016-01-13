@@ -18,24 +18,33 @@
 
 package com.backendless.push.registration;
 
+import android.util.Log;
 import com.backendless.Backendless;
 import com.backendless.DeviceRegistration;
 import com.backendless.Invoker;
 import com.backendless.Messaging;
+import com.backendless.ThreadPoolService;
+import com.backendless.async.callback.AsyncCallback;
+import com.backendless.exceptions.BackendlessException;
+import com.backendless.exceptions.BackendlessFault;
 import com.backendless.messaging.SubscriptionOptions;
 import weborb.v3types.GUID;
 
 public class PubSubNotificationDeviceRegistrationCallback implements IDeviceRegistrationCallback
 {
+  public static final String TAG = "PubSubNotificationDeviceRegistrationCallback";
   private String id = new GUID().toString();
-  private String subscriptionId;
   private String channelName;
   private SubscriptionOptions subscriptionOptions;
+  private AsyncCallback<String> subscriptionAsyncCallback;
+  private String subscriptionId;
 
-  public PubSubNotificationDeviceRegistrationCallback( String channelName, SubscriptionOptions subscriptionOptions )
+  public PubSubNotificationDeviceRegistrationCallback( String channelName, SubscriptionOptions subscriptionOptions,
+                                                       AsyncCallback<String> subscriptionAsyncCallback )
   {
     this.channelName = channelName;
     this.subscriptionOptions = subscriptionOptions;
+    this.subscriptionAsyncCallback = subscriptionAsyncCallback;
   }
 
   @Override
@@ -47,18 +56,46 @@ public class PubSubNotificationDeviceRegistrationCallback implements IDeviceRegi
     registration.setOs( Messaging.OS );
     registration.setOsVersion( Messaging.OS_VERSION );
 
-    if ( subscriptionOptions == null )
-       subscriptionOptions = new SubscriptionOptions(  );
+    if( subscriptionOptions == null )
+      subscriptionOptions = new SubscriptionOptions();
 
-    subscriptionId = Invoker.invokeSync( Messaging.MESSAGING_MANAGER_SERVER_ALIAS, "subscribeForPollingAccess", new Object[]
-            { Backendless.getApplicationId(), Backendless.getVersion(), channelName, subscriptionOptions, registration });
+    Invoker.invokeAsync( Messaging.MESSAGING_MANAGER_SERVER_ALIAS, "subscribeForPollingAccess", new Object[] { Backendless.getApplicationId(), Backendless.getVersion(), channelName, subscriptionOptions, registration }, new AsyncCallback<String>()
+    {
+      @Override
+      public void handleResponse( String subscriptionId )
+      {
+        PubSubNotificationDeviceRegistrationCallback.this.subscriptionId = subscriptionId;
+        subscriptionAsyncCallback.handleResponse( subscriptionId );
+        Log.d( TAG, "registered: subscribeForPollingAccess on server subscription id is: " + subscriptionId );
+      }
 
+      @Override
+      public void handleFault( BackendlessFault fault )
+      {
+        subscriptionAsyncCallback.handleFault( fault );
+      }
+    } );
   }
 
   @Override
   public void unregister()
   {
-    boolean success = Backendless.Messaging.unregisterDeviceOnServer();
+    ThreadPoolService.getPoolExecutor().execute( new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        try
+        {
+          Invoker.invokeSync( Messaging.MESSAGING_MANAGER_SERVER_ALIAS, "unsubscribe", new Object[] { subscriptionId } );
+          Log.d( TAG, "unregister successful" );
+        }
+        catch( BackendlessException e )
+        {
+          Log.e( TAG, "unregister error: " + e.getMessage() );
+        }
+      }
+    } );
   }
 
   @Override
@@ -77,10 +114,5 @@ public class PubSubNotificationDeviceRegistrationCallback implements IDeviceRegi
   public String getIdentity()
   {
     return id;
-  }
-
-  public String getSubscriptionId()
-  {
-    return subscriptionId;
   }
 }

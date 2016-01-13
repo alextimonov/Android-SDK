@@ -54,24 +54,36 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
   @Override
   public void registered( String senderId, String deviceToken, Long registrationExpiration )
   {
-    synchronized ( lock )
+    synchronized( lock )
     {
       Iterator<List<String>> it = unNotified.keySet().iterator();
 
-      while ( it.hasNext() )
+      while( it.hasNext() )
       {
         List<String> channels = it.next();
 
         Collection<AsyncCallback<Void>> callbacks = unNotified.get( channels );
 
-        for ( final AsyncCallback<Void> callback : callbacks )
+        for( final AsyncCallback<Void> callback : callbacks )
         {
           try
           {
-            Backendless.Messaging.registerDeviceOnServer( deviceToken, channels, registrationExpiration );
-            callback.handleResponse( null );
+            Backendless.Messaging.registerDeviceOnServer( deviceToken, channels, registrationExpiration, new AsyncCallback<String>()
+            {
+              @Override
+              public void handleResponse( String response )
+              {
+                callback.handleResponse( null );
+              }
+
+              @Override
+              public void handleFault( BackendlessFault fault )
+              {
+                callback.handleFault( fault );
+              }
+            } );
           }
-          catch ( Exception e )
+          catch( Exception e )
           {
             callback.handleFault( new BackendlessFault( e.getMessage() ) );
           }
@@ -86,28 +98,36 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
   public void unregister()
   {
 
-    synchronized ( lock )
+    synchronized( lock )
     {
       Iterator<List<String>> it = unNotified.keySet().iterator();
 
-      while ( it.hasNext() )
+      while( it.hasNext() )
       {
         List<String> channels = it.next();
 
         Collection<AsyncCallback<Void>> callbacks = unNotified.get( channels );
 
-        for ( final AsyncCallback<Void> callback : callbacks )
+        for( final AsyncCallback<Void> callback : callbacks )
         {
           try
           {
-            boolean success = Backendless.Messaging.unregisterDeviceOnServer();
+            Backendless.Messaging.unregisterDeviceOnServer( new AsyncCallback<Boolean>()
+            {
+              @Override
+              public void handleResponse( Boolean response )
+              {
+                callback.handleResponse( null );
+              }
 
-            if( success )
-              callback.handleResponse( null );
-            else
-              callback.handleFault( new BackendlessFault( "Unregistration on backendless server failed" ) );
+              @Override
+              public void handleFault( BackendlessFault fault )
+              {
+                callback.handleFault( new BackendlessFault( "Unregistration on backendless server failed" ) );
+              }
+            } );
           }
-          catch ( Exception e )
+          catch( Exception e )
           {
             callback.handleFault( new BackendlessFault( e.getMessage() ) );
           }
@@ -138,7 +158,7 @@ public class PushNotificationDeviceRegistrationCallback implements IDeviceRegist
 
   private PushNotificationDeviceRegistrationCallback addCallback( List<String> channels, AsyncCallback<Void> callback )
   {
-    synchronized ( lock )
+    synchronized( lock )
     {
       if( !unNotified.containsKey( channels ) )
       {

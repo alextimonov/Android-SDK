@@ -21,12 +21,15 @@ package com.backendless.push.registration;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 import com.backendless.push.GCMConstants;
 
 import java.util.Date;
 
 class GcmRegistrar implements IRegistrar
 {
+  private static final String TAG = "GcmRegistrar";
+
   @Override
   public void register( Context context, String senderId, Date expiration, IDeviceRegistrationCallback callback )
   {
@@ -45,6 +48,7 @@ class GcmRegistrar implements IRegistrar
     Intent intent = new Intent( GCMConstants.INTENT_TO_GCM_UNREGISTRATION );
     intent.setPackage( GCMConstants.GSF_PACKAGE );
     intent.putExtra( GCMConstants.EXTRA_APPLICATION_PENDING_INTENT, PendingIntent.getBroadcast( context, 0, new Intent(), 0 ) );
+    Log.d( TAG, "unregister: context.startService" );
     context.startService( intent );
   }
 
@@ -52,25 +56,25 @@ class GcmRegistrar implements IRegistrar
   public void registrationCompleted( String senderId, String deviceToken, Long registrationExpiration,
                                      String callbackId )
   {
-
+    Log.d( TAG, "registrationCompleted, device token: " + deviceToken + ", callback id:" + callbackId );
   }
 
   @Override
   public void registrationFailed( String error, String callbackId )
   {
-
+    Log.d( TAG, "registrationFailed: " + error );
   }
 
   @Override
   public void unregistrationCompleted( String callbackId )
   {
-
+    Log.d( TAG, "unregistrationCompleted: " + callbackId );
   }
 
   @Override
   public void unregistrationFailed( String error, String callbackId )
   {
-
+    Log.d( TAG, "unregistrationFailed: " + error );
   }
 
   @Override

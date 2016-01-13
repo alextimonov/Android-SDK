@@ -25,6 +25,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
+import android.util.Log;
 import com.backendless.Backendless;
 import com.backendless.push.GCMConstants;
 
@@ -45,6 +46,7 @@ public class Registrar implements IRegistrar
   private static final Lock lock = new ReentrantLock();
   private static final Object notify = new Object();
   private static final int DEFAULT_ON_SERVER_LIFESPAN_MS = /*2 days*/1000 * 60 * 60 * 24 * 2;
+  private static final String TAG = "Registrar";
 
   private Registrar()
   {
@@ -70,19 +72,24 @@ public class Registrar implements IRegistrar
   @Override
   public void register( Context context, String senderId, Date expiration, IDeviceRegistrationCallback callback )
   {
+    Log.d( TAG, "register: check device and manifest" );
     checkDevice( context );
     checkManifest( context );
     lock.lock();
+    Log.d( TAG, "register: lock acquired" );
     try
     {
       callbackMap.put( callback.getIdentity(), callback );
       String deviceToken = RegistrationState.getDeviceToken( context );
+      Log.d( TAG, "register: current device token: " + deviceToken );
 
       if( deviceToken != null && !deviceToken.isEmpty() )
       {
         registrationCompleted( senderId, deviceToken, getRegistrationExpiration( expiration ), callback.getIdentity() );
         return;
       }
+
+      Log.d( TAG, "register: device token not found, will register on google service " );
 
       RegistrationState.setCallbackId( context, callback.getIdentity() );
       RegistrationState.setAction( context, GCMConstants.INTENT_TO_GCM_REGISTRATION );
@@ -92,10 +99,12 @@ public class Registrar implements IRegistrar
       service.register( context, senderId, expiration, callback );
 
       waitForActionDone();
+      Log.d( TAG, "register: registered" );
     }
     finally
     {
       lock.unlock();
+      Log.d( TAG, "register: lock released" );
     }
   }
 
@@ -103,25 +112,31 @@ public class Registrar implements IRegistrar
   public void unregister( Context context, IDeviceRegistrationCallback callback )
   {
     lock.lock();
-
+    Log.d( TAG, "unregister: lock acquired" );
     try
     {
       callbackMap.put( callback.getIdentity(), callback );
+      Log.d( TAG, "unregister: callback size: " + callbackMap.size() );
 
-      if( !isRegistered( context ) )
+      if( !isRegistered( context ) || callbackMap.size() > 1 )
       {
+        Log.d( TAG, "unregister: already unregistered or there more then one callbacks" );
         unregistrationCompleted( callback.getIdentity() );
         return;
       }
 
       RegistrationState.setCallbackId( context, callback.getIdentity() );
       RegistrationState.setAction( context, GCMConstants.INTENT_TO_GCM_UNREGISTRATION );
+      Log.d( TAG, "unregister: start unregister on device" );
       service.unregister( context, callback );
       waitForActionDone();
+      Log.d( TAG, "unregister: unregistered" );
+
     }
     finally
     {
       lock.unlock();
+      Log.d( TAG, "unregister: lock released" );
     }
   }
 
@@ -129,6 +144,7 @@ public class Registrar implements IRegistrar
   public void registrationCompleted( String senderId, String deviceToken, Long registrationExpiration,
                                      String callbackId )
   {
+    Log.d( TAG, "registrationCompleted: device token is " + deviceToken );
     IDeviceRegistrationCallback deviceRegistrationCallback = callbackMap.get( callbackId );
 
     if( deviceRegistrationCallback != null )
@@ -140,6 +156,7 @@ public class Registrar implements IRegistrar
   @Override
   public void registrationFailed( String error, String callbackId )
   {
+    Log.d( TAG, "registrationFailed: " + error );
     IDeviceRegistrationCallback deviceRegistrationCallback = callbackMap.get( callbackId );
 
     if( deviceRegistrationCallback != null )
