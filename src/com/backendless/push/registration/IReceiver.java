@@ -20,8 +20,9 @@ package com.backendless.push.registration;
 
 import android.content.Context;
 import android.content.Intent;
+import com.backendless.push.BackendlessBroadcastReceiver;
 
 public interface IReceiver
 {
-  void handleMessage( Context context, Intent intent, boolean showNotification );
+  void handleMessage( Context context, Intent intent, BackendlessBroadcastReceiver receiver );
 }

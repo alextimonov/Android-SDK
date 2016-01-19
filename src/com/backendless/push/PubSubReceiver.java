@@ -39,7 +39,7 @@ import java.util.List;
 class PubSubReceiver implements IReceiver
 {
   @Override
-  public void handleMessage( Context context, Intent intent, boolean showNotification )
+  public void handleMessage( Context context, Intent intent, BackendlessBroadcastReceiver receiver)
   {
     String message = intent.getStringExtra( PublishOptions.MESSAGE_TAG );
     String subscriptionIdentity = intent.getStringExtra( Receiver.SUBSCRIBER_IDENTITY_KEY );

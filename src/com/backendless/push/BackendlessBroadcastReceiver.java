@@ -137,8 +137,7 @@ public class BackendlessBroadcastReceiver extends BroadcastReceiver
 
     try
     {
-      boolean showPushNotification = onMessage( context, intent );
-      receiver.handleMessage( context, intent, showPushNotification );
+      receiver.handleMessage( context, intent, this );
     }
     catch( Throwable throwable )
     {

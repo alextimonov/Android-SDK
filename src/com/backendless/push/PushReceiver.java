@@ -38,9 +38,9 @@ class PushReceiver implements IReceiver
   private static int notificationId = 1;
 
   @Override
-  public void handleMessage( Context context, Intent intent, boolean showNotification )
+  public void handleMessage( Context context, Intent intent, BackendlessBroadcastReceiver receiver )
   {
-    if( showNotification )
+    if( receiver.onMessage( context, intent ) )
     {
       CharSequence tickerText = intent.getStringExtra( PublishOptions.ANDROID_TICKER_TEXT_TAG );
       CharSequence contentTitle = intent.getStringExtra( PublishOptions.ANDROID_CONTENT_TITLE_TAG );

@@ -30,14 +30,14 @@ class Receiver implements IReceiver
   private static final IReceiver pubSubReceiver = new PubSubReceiver();
 
   @Override
-  public void handleMessage( Context context, Intent intent, boolean showNotification )
+  public void handleMessage( Context context, Intent intent, BackendlessBroadcastReceiver receiver )
   {
     String subscriberIdentity = intent.getStringExtra( SUBSCRIBER_IDENTITY_KEY );
 
     if( subscriberIdentity == null || subscriberIdentity.isEmpty())
-       pushReceiver.handleMessage( context, intent, showNotification );
+       pushReceiver.handleMessage( context, intent, receiver );
     else
-      pubSubReceiver.handleMessage( context, intent, showNotification );
+      pubSubReceiver.handleMessage( context, intent, receiver );
 
   }
 }
