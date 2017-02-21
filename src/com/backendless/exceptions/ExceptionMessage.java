@@ -68,6 +68,8 @@ public class ExceptionMessage
 
   public final static String NULL_CATHEGORY = "Cannot add category. Category name is NULL.";
 
+  public static final String NULL_STREAM = "Stream cannot be null";
+
   public final static String WRONG_RADIUS = "Wrong radius value.";
   public final static String WRONG_SEARCH_RECTANGLE_QUERY = "Wrong rectangle search query. It should contain four points.";
 
@@ -145,6 +147,9 @@ public class ExceptionMessage
 
   public final static String INCORRECT_MESSAGE_TYPE = "Message object can not be instance of PublishOptions or DeliveryOptions class";
   public final static String INVALID_CLASS = "Cannot use inner or anonymous classes. Make sure the class is public. It cannot be inner or anonymous";
+
+  public static final String INTERNET_CONNECTION_IS_NOT_AVAILABLE = "Unable to download file. Internet connection is not available";
+
 
   public static String NULL_FIELD( String field )
   {
