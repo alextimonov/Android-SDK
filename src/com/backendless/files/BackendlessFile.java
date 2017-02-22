@@ -18,11 +18,6 @@
 
 package com.backendless.files;
 
-import android.Manifest;
-import android.app.ProgressDialog;
-import android.content.Context;
-import android.content.DialogInterface;
-
 import com.backendless.Backendless;
 import com.backendless.ThreadPoolService;
 import com.backendless.async.callback.AsyncCallback;
@@ -32,6 +27,7 @@ import com.backendless.exceptions.ExceptionMessage;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -43,7 +39,7 @@ import java.net.URL;
 
 public class BackendlessFile
 {
-  private static final int BUFFER_SIZE = 8 * 1024;
+  private static final int BUFFER_SIZE = 64 * 1024;
   private static final String FILE_DOWNLOAD_ERROR_MESSAGE = "Error during file download. Message: ";
   private static final String SERVER_RETURNED_HTTP = "Server returned HTTP ";
   private static final int TIMEOUT = 5000;
@@ -53,12 +49,16 @@ public class BackendlessFile
   private static final String USER_CANCELS_DOWNLOAD = "User cancels download";
 
   private String fileURL;
-
   private boolean userCancelsDownload = false;
+  private boolean isAutoDownloadComplete = false;
+  private byte[] autoDownloadedData;
+  private InputStream inputStreamForDownloadedData;
+  private Thread threadForAutoDownload;
 
   public BackendlessFile( String fileURL )
   {
     this.fileURL = fileURL;
+    autoDownloadFileUrlToMemory();
   }
 
   public void setFileURL( String fileURL )
@@ -81,7 +81,17 @@ public class BackendlessFile
     Backendless.Files.remove( fileURL, responder );
   }
 
-  public void download( final OutputStream stream, final AsyncCallback<Void> asyncCallback )
+  public void autoDownload( boolean enable )
+  {
+
+    if( enable )
+      autoDownloadFileUrlToMemory();
+    else
+      interruptAutoDownload();
+
+  }
+
+  public void download(final OutputStream stream, final AsyncCallback<Void> asyncCallback )
   {
     final android.app.ProgressDialog progressDialog = null;
     download( stream, progressDialog, asyncCallback );
@@ -121,16 +131,20 @@ public class BackendlessFile
     asyncDownloadToByteArray( asyncCallback, progressDialog );
   }
 
-  private void asyncDownloadToStream( final OutputStream stream, final AsyncCallback<Void> asyncCallback,
+  private void asyncDownloadToStream( final OutputStream outputStream, final AsyncCallback<Void> asyncCallback,
                                       final android.app.ProgressDialog progressDialog )
   {
     setListenerForProgressDialog( asyncCallback, progressDialog );
-    ThreadPoolService.getPoolExecutor().execute( new Runnable()
+    ThreadPoolService.getPoolExecutor().execute(new Runnable()
     {
       @Override
       public void run()
       {
-        downloadToStream( stream, asyncCallback, progressDialog );
+
+        if( isAutoDownloadComplete )
+          downloadToStreamFromMemory( outputStream, asyncCallback );
+        else
+          downloadToStream( outputStream, asyncCallback, progressDialog );
       }
     } );
   }
@@ -144,7 +158,12 @@ public class BackendlessFile
       @Override public void run()
       {
         File outputFile = new File( localFilePathName );
-        downloadToFile( outputFile, asyncCallback, progressDialog );
+
+        if( isAutoDownloadComplete )
+          downloadToFileFromMemory( outputFile, asyncCallback );
+        else
+          downloadToFile( outputFile, asyncCallback, progressDialog );
+
         asyncCallback.handleResponse( outputFile );
       }
     } );
@@ -159,18 +178,26 @@ public class BackendlessFile
       @Override
       public void run()
       {
-        byte[] bytes = downloadToByteArray( asyncCallback, progressDialog );
-        asyncCallback.handleResponse( bytes );
+
+        if( isAutoDownloadComplete )
+          asyncCallback.handleResponse(autoDownloadedData);
+        else
+        {
+          byte[] bytes = downloadToByteArray( asyncCallback, progressDialog );
+          asyncCallback.handleResponse( bytes );
+        }
+
       }
     } );
   }
 
-  private <T> void setListenerForProgressDialog( final AsyncCallback<T> asyncCallback, ProgressDialog progressDialog )
+  private <T> void setListenerForProgressDialog( final AsyncCallback<T> asyncCallback,
+                                                 final android.app.ProgressDialog progressDialog )
   {
-    progressDialog.setOnDismissListener( new DialogInterface.OnDismissListener()
+    progressDialog.setOnDismissListener( new android.content.DialogInterface.OnDismissListener()
     {
       @Override
-      public void onDismiss( DialogInterface dialogInterface )
+      public void onDismiss( android.content.DialogInterface dialogInterface )
       {
         userCancelsDownload = true;
         asyncCallbackFaultOrThrowException( asyncCallback, USER_CANCELS_DOWNLOAD );
@@ -178,8 +205,8 @@ public class BackendlessFile
     } );
   }
 
-  private void downloadToStream( final OutputStream stream, final AsyncCallback<Void> asyncCallback,
-                                 final android.app.ProgressDialog progressDialog )
+  private void downloadToStream(final OutputStream outputStream, final AsyncCallback<Void> asyncCallback,
+                                final android.app.ProgressDialog progressDialog )
   {
     HttpURLConnection urlConnection = null;
 
@@ -190,8 +217,8 @@ public class BackendlessFile
 
       try (InputStream inputStream = new BufferedInputStream( urlConnection.getInputStream(), BUFFER_SIZE ))
       {
-        readAndWrite( inputStream, stream, progressDialog, fileSize, asyncCallback );
-        stream.flush();
+        readAndWrite( inputStream, outputStream, progressDialog, fileSize );
+        outputStream.flush();
       }
 
     }
@@ -221,7 +248,7 @@ public class BackendlessFile
       try (InputStream inputStream = new BufferedInputStream( urlConnection.getInputStream(), BUFFER_SIZE );
            OutputStream outputStream = new BufferedOutputStream( new FileOutputStream( outputFile ) ))
       {
-        readAndWrite( inputStream, outputStream, progressDialog, fileSize, asyncCallback );
+        readAndWrite( inputStream, outputStream, progressDialog, fileSize );
       }
 
     }
@@ -257,7 +284,7 @@ public class BackendlessFile
       try (InputStream inputStream = new BufferedInputStream( urlConnection.getInputStream(), BUFFER_SIZE ))
       {
         outputStream = new ByteArrayOutputStream();
-        readAndWrite( inputStream, outputStream, progressDialog, fileSize, asyncCallback );
+        readAndWrite( inputStream, outputStream, progressDialog, fileSize );
       }
 
       return outputStream.toByteArray();
@@ -276,26 +303,26 @@ public class BackendlessFile
     }
   }
 
-  private <T> void readAndWrite( InputStream inputStream, OutputStream outputStream,
-                                 final android.app.ProgressDialog progressDialog, long fileSize,
-                                 final AsyncCallback<T> asyncCallback ) throws IOException
+  private void readAndWrite( InputStream inputStream, OutputStream outputStream,
+                             final android.app.ProgressDialog progressDialog, long fileSize ) throws IOException
   {
 
     if( progressDialog == null )
       readAndWrite( inputStream, outputStream );
     else
     {
-      int totalRead = 0;
+      long totalRead = 0;
       int bytesRead;
+      Long progressValue;
       byte[] chunk = new byte[ BUFFER_SIZE ];
       userCancelsDownload = false;
 
-      while( (bytesRead = inputStream.read( chunk )) > 0 && !userCancelsDownload )
+      while( ( bytesRead = inputStream.read( chunk ) ) > 0 && !userCancelsDownload )
       {
         outputStream.write( chunk, 0, bytesRead );
-        totalRead++;
-        int progressValue = (int) (MAX_PROGRESS * totalRead / fileSize);
-        progressDialog.setProgress( progressValue );
+        totalRead += bytesRead;
+        progressValue = MAX_PROGRESS * totalRead / fileSize;
+        progressDialog.setProgress( progressValue.intValue() );
       }
 
     }
@@ -307,10 +334,8 @@ public class BackendlessFile
     int bytesRead;
     byte[] chunk = new byte[ BUFFER_SIZE ];
 
-    while( (bytesRead = inputStream.read( chunk )) > 0 )
-    {
+    while( ( bytesRead = inputStream.read( chunk ) ) > 0 )
       outputStream.write( chunk, 0, bytesRead );
-    }
 
   }
 
@@ -365,56 +390,151 @@ public class BackendlessFile
 
   }
 
+  //TODO remove getting permissions
   private boolean checkWriteExternalStorage()
   {
-    Context appContext = getContext();
-    int result = appContext.checkCallingOrSelfPermission( Manifest.permission.WRITE_EXTERNAL_STORAGE );
-    return result == android.content.pm.PackageManager.PERMISSION_GRANTED;
-  }
-
-  private Context getContext()
-  {
-    return ( ( Context ) new Object() ).getApplicationContext();
+    return true;
   }
 
   private <T> void checkInternetConnection( AsyncCallback<T> asyncCallback )
   {
-    Context appContext = getContext();
-
-    if( checkAccessNetworkState( appContext ) && checkInternetState( appContext ) )
-      checkIfInternetWorks( asyncCallback );
-    else
-      asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.INTERNET_CONNECTION_IS_NOT_AVAILABLE );
-
+    checkIfInternetWorks( asyncCallback );
   }
 
-  private boolean checkAccessNetworkState( Context appContext )
+  private boolean checkAccessNetworkState()
   {
-    int result = appContext.checkCallingOrSelfPermission( Manifest.permission.ACCESS_NETWORK_STATE );
-    return result == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    return true;
   }
 
-  private boolean checkInternetState( Context appContext )
+  private boolean checkInternetState()
   {
-    int result = appContext.checkCallingOrSelfPermission( Manifest.permission.INTERNET );
-    return result == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    return true;
   }
 
-  private <T> void checkIfInternetWorks( AsyncCallback<T> asyncCallback )
+  private <T> void checkIfInternetWorks( final AsyncCallback<T> asyncCallback )
   {
+    ThreadPoolService.getPoolExecutor().execute(new Runnable()
+    {
+      @Override
+      public void run()
+      {
+
+        try
+        {
+          URL url = new URL( BACKENDLESS_API_URL );
+          HttpURLConnection connection = ( HttpURLConnection ) url.openConnection();
+          connection.setConnectTimeout( TIMEOUT );
+          connection.connect();
+          if( connection.getResponseCode() != HttpURLConnection.HTTP_OK )
+            throw new IOException();
+        }
+        catch( IOException e)
+        {
+          asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.INTERNET_CONNECTION_IS_NOT_AVAILABLE );
+        }
+
+      }
+    } );
+  }
+
+  private void autoDownloadFileUrlToMemory()
+  {
+    checkInternetConnection( null );
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    asyncAutoDownloadToStream( outputStream );
+  }
+
+  private void asyncAutoDownloadToStream( final ByteArrayOutputStream outputStream )
+  {
+    threadForAutoDownload = new Thread( new Runnable() {
+      @Override
+      public void run()
+      {
+        autoDownloadToStream( outputStream );
+      }
+    });
+    threadForAutoDownload.start();
+  }
+
+  private void autoDownloadToStream( ByteArrayOutputStream outputStream )
+  {
+    HttpURLConnection urlConnection = null;
+
     try
     {
-      URL url = new URL( BACKENDLESS_API_URL );
-      HttpURLConnection connection = ( HttpURLConnection ) url.openConnection();
-      connection.setConnectTimeout( TIMEOUT );
-      connection.connect();
-      if( connection.getResponseCode() == HttpURLConnection.HTTP_OK )
-        throw new IOException();
+      urlConnection = getHttpURLConnection( null );
+      long fileSize = checkAvailableMemory( urlConnection );
+      autoDownloadedData = new byte[ (int) fileSize ];
+
+      try (InputStream inputStream = new BufferedInputStream( urlConnection.getInputStream(), BUFFER_SIZE ) )
+      {
+        readAndWrite( inputStream, outputStream );
+      }
+
+      autoDownloadedData = outputStream.toByteArray();
+      inputStreamForDownloadedData = new ByteArrayInputStream( autoDownloadedData);
+      isAutoDownloadComplete = true;
+
     }
-    catch( IOException e)
+    catch( IOException e )
     {
-      asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.INTERNET_CONNECTION_IS_NOT_AVAILABLE );
+      throw new BackendlessException( FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
     }
+    finally
+    {
+
+      if( urlConnection != null )
+        urlConnection.disconnect();
+
+    }
+  }
+
+  private long checkAvailableMemory( HttpURLConnection urlConnection )
+  {
+    long fileSize = urlConnection.getContentLengthLong();
+    long freeMemory = Runtime.getRuntime().freeMemory();
+
+    if( freeMemory < fileSize )
+      throw new BackendlessException( ExceptionMessage.NOT_ENOUGH_MEMORY );
+
+    return fileSize;
+  }
+
+  private void downloadToFileFromMemory( File outputFile, AsyncCallback<File> asyncCallback )
+  {
+
+    try
+    {
+      OutputStream outputStream = new BufferedOutputStream( new FileOutputStream( outputFile ), BUFFER_SIZE );
+      readAndWrite(inputStreamForDownloadedData, outputStream );
+      outputStream.flush();
+      outputStream.close();
+    }
+    catch( IOException e )
+    {
+      asyncCallbackFaultOrThrowException( asyncCallback, FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
+    }
+
+  }
+
+  private void downloadToStreamFromMemory( OutputStream outputStream, AsyncCallback<Void> asyncCallback )
+  {
+
+    try
+    {
+      readAndWrite(inputStreamForDownloadedData, outputStream );
+    }
+    catch( IOException e )
+    {
+      asyncCallbackFaultOrThrowException( asyncCallback, FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
+    }
+
+  }
+
+  private void interruptAutoDownload()
+  {
+    threadForAutoDownload.interrupt();
+    isAutoDownloadComplete = false;
   }
 
   /*

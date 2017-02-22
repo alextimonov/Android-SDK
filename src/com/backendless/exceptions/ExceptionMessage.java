@@ -150,6 +150,7 @@ public class ExceptionMessage
 
   public static final String INTERNET_CONNECTION_IS_NOT_AVAILABLE = "Unable to download file. Internet connection is not available";
   public static final String UNABLE_DOWNLOAD_TO_DIRECTORY = "Unable to download file. Directory doesn't exist or has no write permission";
+  public static final String NOT_ENOUGH_MEMORY = "Unable to auto download file. Not enough memory";
 
   public static String NULL_FIELD( String field )
   {
