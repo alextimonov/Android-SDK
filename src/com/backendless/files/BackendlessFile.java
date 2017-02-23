@@ -352,6 +352,7 @@ public class BackendlessFile
   {
     HttpURLConnection urlConnection = null;
     ByteArrayOutputStream outputStream = null;
+    byte[] result = new byte[0];
 
     try
     {
@@ -370,17 +371,26 @@ public class BackendlessFile
       }
       catch( IOException e)
       {
-        outputStream.flush();
-        outputStream.close();
+
+        if( outputStream != null )
+        {
+          outputStream.flush();
+          outputStream.close();
+        }
+
         asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
       }
-      outputStream.close();
-      return outputStream.toByteArray();
+
+      if( outputStream != null )
+      {
+        result = outputStream.toByteArray();
+        outputStream.close();
+      }
+
     }
     catch( IOException e )
     {
       asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
-      return new byte[ 0 ];
     }
     finally
     {
@@ -389,6 +399,7 @@ public class BackendlessFile
         urlConnection.disconnect();
 
     }
+    return result;
   }
 
   private void readAndWrite( InputStream inputStream, OutputStream outputStream,
@@ -535,7 +546,7 @@ public class BackendlessFile
         }
       } );
     }
-    catch( Exception e)
+    catch( Exception e )
     {
       asyncCallbackFaultOrThrowException( null, ExceptionMessage.ASYNC_DOWNLOAD_ERROR + e.getMessage() );
     }
@@ -560,7 +571,7 @@ public class BackendlessFile
   private <T> void downloadToStreamFromMemory( OutputStream outputStream, AsyncCallback<T> asyncCallback )
   {
 
-    try(InputStream inputStream = new ByteArrayInputStream( autoDownloadedData ))
+    try( InputStream inputStream = new ByteArrayInputStream( autoDownloadedData ) )
     {
       readFromMemory( inputStream, outputStream );
     }
