@@ -18,6 +18,7 @@
 
 package com.backendless.files;
 
+import android.app.ProgressDialog;
 import com.backendless.Backendless;
 import com.backendless.HeadersManager;
 import com.backendless.ThreadPoolService;
@@ -138,13 +139,7 @@ public class BackendlessFile
     {
 
       if( !isAutoDownloadComplete )
-
-        //TODO
-        while( isAutoDownloadInProcess )
-        {
-          if( progressDialog != null)
-            progressDialog.setProgress( downLoadProgress.intValue() );
-        }
+        waitForAutoDownload( asyncCallback, progressDialog );
 
       downloadToStreamFromMemory( outputStream, asyncCallback );
 
@@ -180,17 +175,10 @@ public class BackendlessFile
     {
 
       if( !isAutoDownloadComplete )
-
-        //TODO
-        while( isAutoDownloadInProcess )
-        {
-          if( progressDialog != null)
-            progressDialog.setProgress( downLoadProgress.intValue() );
-        }
+        waitForAutoDownload( asyncCallback, progressDialog );
 
       downloadToFileFromMemory( outputFile, asyncCallback );
       asyncCallback.handleResponse( outputFile );
-
     }
     else
     {
@@ -224,17 +212,10 @@ public class BackendlessFile
     {
 
       if( !isAutoDownloadComplete )
+        waitForAutoDownload( asyncCallback, progressDialog );
 
-        //TODO
-        while( isAutoDownloadInProcess )
-        {
-          if( progressDialog != null)
-            progressDialog.setProgress( downLoadProgress.intValue() );
-        }
-
-        byte[] bytes = autoDownloadedData;
-        asyncCallback.handleResponse( bytes );
-
+      byte[] bytes = autoDownloadedData;
+      asyncCallback.handleResponse( bytes );
     }
 
     try
@@ -261,6 +242,25 @@ public class BackendlessFile
       asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.ASYNC_DOWNLOAD_ERROR + e.getMessage() );
     }
 
+  }
+
+  private <T> void waitForAutoDownload( AsyncCallback<T> asyncCallback, ProgressDialog progressDialog )
+  {
+    while( isAutoDownloadInProcess )
+    {
+      if( progressDialog != null)
+        progressDialog.setProgress( downLoadProgress.intValue() );
+
+      try
+      {
+        Thread.sleep( 200L );
+      }
+      catch( InterruptedException e )
+      {
+        asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.INTERRUPTED_WHILE_AUTO_DOWNLOAD +
+                e.getMessage() );
+      }
+    }
   }
 
   private void setListenerForProgressDialog( final android.app.ProgressDialog progressDialog )

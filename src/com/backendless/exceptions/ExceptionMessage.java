@@ -157,6 +157,7 @@ public class ExceptionMessage
   public static final String ASYNC_DOWNLOAD_ERROR = "Error while asynchronous downloading. Message: ";
   public static final String AUTODOWNLOAD_ABORTED = "Autodownload aborted";
   public static final String USER_CANCELS_DOWNLOAD = "User cancels download";
+  public static final String INTERRUPTED_WHILE_AUTO_DOWNLOAD = "Interrupted while auto download. Message:";
 
 
   public static String NULL_FIELD( String field )
