@@ -52,14 +52,12 @@ public class BackendlessFile
   private boolean isAutoDownloadInProcess = false;
   private Long downLoadProgress;
   private byte[] autoDownloadedData;
-  private InputStream inputStreamForDownloadedData;
 
   private boolean userCancelsDownload = false;
 
   public BackendlessFile( String fileURL )
   {
     this.fileURL = fileURL;
-    asyncAutoDownloadData();
   }
 
   public void setFileURL( String fileURL )
@@ -141,6 +139,7 @@ public class BackendlessFile
 
       if( !isAutoDownloadComplete )
 
+        //TODO
         while( isAutoDownloadInProcess )
         {
           if( progressDialog != null)
@@ -182,6 +181,7 @@ public class BackendlessFile
 
       if( !isAutoDownloadComplete )
 
+        //TODO
         while( isAutoDownloadInProcess )
         {
           if( progressDialog != null)
@@ -225,6 +225,7 @@ public class BackendlessFile
 
       if( !isAutoDownloadComplete )
 
+        //TODO
         while( isAutoDownloadInProcess )
         {
           if( progressDialog != null)
@@ -367,12 +368,13 @@ public class BackendlessFile
         outputStream = new ByteArrayOutputStream();
         readAndWrite( inputStream, outputStream, progressDialog, fileSize );
       }
-      catch( BackendlessException e)
+      catch( IOException e)
       {
         outputStream.flush();
         outputStream.close();
+        asyncCallbackFaultOrThrowException( asyncCallback, ExceptionMessage.FILE_DOWNLOAD_ERROR_MESSAGE + e.getMessage() );
       }
-
+      outputStream.close();
       return outputStream.toByteArray();
     }
     catch( IOException e )
@@ -527,17 +529,7 @@ public class BackendlessFile
         {
           checkInternetConnection( null );
           isAutoDownloadInProcess = true;
-
-          try
-          {
-            autoDownloadedData = downloadToByteArray( null, null );
-          }
-          catch (BackendlessException e)
-          {
-
-          }
-
-          inputStreamForDownloadedData = new ByteArrayInputStream( autoDownloadedData );
+          autoDownloadedData = downloadToByteArray( null, null );
           isAutoDownloadInProcess = false;
           isAutoDownloadComplete = true;
         }
@@ -553,12 +545,10 @@ public class BackendlessFile
   private void downloadToFileFromMemory( File outputFile, AsyncCallback<File> asyncCallback )
   {
 
-    try
+    try( OutputStream outputStream = new BufferedOutputStream( new FileOutputStream( outputFile ), BUFFER_SIZE ) )
     {
-      OutputStream outputStream = new BufferedOutputStream( new FileOutputStream( outputFile ), BUFFER_SIZE );
-      readFromMemory( inputStreamForDownloadedData, outputStream );
+      downloadToStreamFromMemory( outputStream, asyncCallback );
       outputStream.flush();
-      outputStream.close();
     }
     catch( IOException e )
     {
@@ -567,12 +557,12 @@ public class BackendlessFile
 
   }
 
-  private void downloadToStreamFromMemory( OutputStream outputStream, AsyncCallback<Void> asyncCallback )
+  private <T> void downloadToStreamFromMemory( OutputStream outputStream, AsyncCallback<T> asyncCallback )
   {
 
-    try
+    try(InputStream inputStream = new ByteArrayInputStream( autoDownloadedData ))
     {
-      readFromMemory( inputStreamForDownloadedData, outputStream );
+      readFromMemory( inputStream, outputStream );
     }
     catch( IOException e )
     {
